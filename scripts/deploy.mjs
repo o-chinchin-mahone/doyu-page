@@ -11,7 +11,7 @@ import {
   waitUntilFunctionActiveV2, waitUntilFunctionUpdatedV2,
 } from "@aws-sdk/client-lambda";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
-import { REGION, STAGE, EXTENSION_ID, names } from "./config.mjs";
+import { REGION, STAGE, EXTENSION_IDS, names } from "./config.mjs";
 import { accountId, ensure, sleep } from "./aws.mjs";
 
 const lambda = new LambdaClient({ region: REGION });
@@ -40,7 +40,7 @@ const Environment = {
   Variables: {
     STAGE,
     TABLE_NAME: n.table,
-    EXTENSION_ID,
+    EXTENSION_ID: EXTENSION_IDS.join(","),
     ALLOWED_IPS: await param(n.allowedIpsParam),
     TOKEN_SECRET: await param(n.tokenSecretParam),
     // ★ Worker を立てるまでは空のまま。値を入れた瞬間、Function URL の直撃は 403 になる

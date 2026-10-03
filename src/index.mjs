@@ -9,7 +9,8 @@ import { ApiError } from "./tags.mjs";
 import { issueToken, verifyToken, newAnon, signCursor, verifyCursor } from "./token.mjs";
 
 const STAGE = process.env.STAGE ?? "local";
-const EXTENSION_ID = process.env.EXTENSION_ID ?? "";
+// 許可する拡張ID。カンマ区切りで複数（ストアから入れた拡張と、手元のフォルダから読み込んだ拡張）
+const EXTENSION_IDS = (process.env.EXTENSION_ID ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "";
 // Cloudflare の Worker と共有する合言葉（docs/09 M5）。
 // 設定されている間は、Function URL への直撃を 403 で落とす。
@@ -68,7 +69,7 @@ const safeEqual = (a, b) => {
 };
 
 const allowedOrigins = new Set([
-  ...(EXTENSION_ID ? [`chrome-extension://${EXTENSION_ID}`] : []),
+  ...EXTENSION_IDS.map((id) => `chrome-extension://${id}`),
   ...(WEB_ORIGIN ? [WEB_ORIGIN] : []),
 ]);
 

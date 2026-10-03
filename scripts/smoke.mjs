@@ -3,7 +3,7 @@
 //   ★ 本番にデータを作らないよう、書き込み経路は「拒否されること」だけ確認する
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
-import { REGION, STAGE, EXTENSION_ID, names } from "./config.mjs";
+import { REGION, STAGE, EXTENSION_IDS, names } from "./config.mjs";
 
 const lambda = new LambdaClient({ region: REGION });
 const ssm = new SSMClient({ region: REGION });
@@ -58,7 +58,8 @@ const checks = [
   ["GET", "/v1/tags", { query: "hash=zz" }, 400],            // 部分一致・不正な長さは 400
   ["GET", "/v1/search", { query: "domain=youtube.com&tag=メヒカリ" }, 200],
   ["POST", "/v1/tags", { body: { url: "https://example.com/x", tag: "x" } }, 401], // トークン必須
-  ["OPTIONS", "/v1/tags", { headers: { origin: `chrome-extension://${EXTENSION_ID}` } }, 204],
+  // ストア版と手元の版の、どちらの拡張からも通ること
+  ...EXTENSION_IDS.map((id) => ["OPTIONS", "/v1/tags", { headers: { origin: `chrome-extension://${id}` } }, 204]),
   // 法務ページ（M4a）
   ["GET", "/terms", {}, 200],
   ["GET", "/privacy", {}, 200],

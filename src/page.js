@@ -65,7 +65,6 @@ async function search(domain, tag) {
     }
   } catch (e) {
     $("err").textContent = e.message;
-    $("settings").open = true;
   }
 }
 
@@ -90,6 +89,3 @@ if (domain) {
 } else {
   $("intro").hidden = false;
 }
-api("/v1/params")
-  .then((p) => { $("params").textContent = `norm_v=${p.norm_v}`; })
-  .catch(() => {});

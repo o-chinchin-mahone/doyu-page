@@ -1,12 +1,12 @@
 {
   "name": "doyu",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node local.mjs",
-    "test": "node --test test/handler.test.mjs test/table.test.mjs test/isolation.test.mjs test/legal.test.mjs test/normalize.test.mjs test/tag.test.mjs test/blocklist.test.mjs test/api.test.mjs",
-    "test:ddb": "node scripts/ddb-local.mjs && DDB_ENDPOINT=http://127.0.0.1:8000 TABLE_NAME=doyu-test-main node --test test/handler.test.mjs test/table.test.mjs test/isolation.test.mjs test/legal.test.mjs test/normalize.test.mjs test/tag.test.mjs test/blocklist.test.mjs test/api.test.mjs",
+    "test": "node --test test/handler.test.mjs test/table.test.mjs test/isolation.test.mjs test/legal.test.mjs test/normalize.test.mjs test/tag.test.mjs test/blocklist.test.mjs test/api.test.mjs test/admin-page.test.mjs",
+    "test:ddb": "node scripts/ddb-local.mjs && DDB_ENDPOINT=http://127.0.0.1:8000 TABLE_NAME=doyu-test-main node --test test/handler.test.mjs test/table.test.mjs test/isolation.test.mjs test/legal.test.mjs test/normalize.test.mjs test/tag.test.mjs test/blocklist.test.mjs test/api.test.mjs test/admin-page.test.mjs",
     "ddb:up": "docker compose up -d",
     "ddb:down": "docker compose down",
     "ddb:init": "node scripts/ddb-local.mjs",
@@ -15,11 +15,12 @@
     "deploy": "node scripts/deploy.mjs",
     "smoke": "node scripts/smoke.mjs",
     "admin": "node scripts/admin.mjs",
+    "admin:page": "node scripts/admin-page.mjs",
     "allow-me": "node scripts/allow-me.mjs",
     "guard": "node scripts/guard.mjs",
     "resume": "node scripts/resume.mjs",
     "destroy": "node scripts/destroy.mjs",
-    "test:ddb:ci": "node --test test/handler.test.mjs test/table.test.mjs test/isolation.test.mjs test/legal.test.mjs test/normalize.test.mjs test/tag.test.mjs test/blocklist.test.mjs test/api.test.mjs"
+    "test:ddb:ci": "node --test test/handler.test.mjs test/table.test.mjs test/isolation.test.mjs test/legal.test.mjs test/normalize.test.mjs test/tag.test.mjs test/blocklist.test.mjs test/api.test.mjs test/admin-page.test.mjs"
   },
   "devDependencies": {
     "@aws-sdk/client-budgets": "^3.1134.0",

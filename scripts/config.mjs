@@ -6,8 +6,10 @@ export const STAGES = ["dev", "prod"];
 export const STAGE = process.env.STAGE || "dev";
 if (!STAGES.includes(STAGE)) throw new Error(`STAGE は ${STAGES.join(" / ")} のどれか: ${STAGE}`);
 
-// 拡張ID（M0 決定5: ローカル生成の鍵ペアで固定。npm run gen-ext-key で表示される）
-export const EXTENSION_ID = "fladmnjffgaplkjhjnhfgifbmcdcoldj";
+// 拡張ID。CORS で許可する相手。
+//   1つ目はストアが割り当てたID（ストアから入れた拡張）。手元の鍵で決めたIDは、ストアでは使われなかった
+//   2つ目は手元のフォルダから読み込んだ拡張のID（extension/manifest.json の key で決まる。npm run gen-ext-key で表示される）
+export const EXTENSION_IDS = ["ablpkoopbapflpebboofalooocmhpbcm", "fladmnjffgaplkjhjnhfgifbmcdcoldj"];
 
 export const names = (stage = STAGE) => ({
   table: `${APP}-${stage}-main`,

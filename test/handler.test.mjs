@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-process.env.EXTENSION_ID = "fladmnjffgaplkjhjnhfgifbmcdcoldj";
+process.env.EXTENSION_ID = "ablpkoopbapflpebboofalooocmhpbcm,fladmnjffgaplkjhjnhfgifbmcdcoldj";
 const { handler } = await import("../src/index.mjs");
 
 const call = (method, rawPath, { ip = "192.0.2.1", headers = {} } = {}) =>
@@ -25,11 +25,12 @@ test("レスポンスに noindex が付く（docs/01 §2.1）", async () => {
 });
 
 test("許可した拡張オリジンにだけ CORS を返す", async () => {
-  const ok = await call("OPTIONS", "/api/tags", {
-    headers: { origin: "chrome-extension://fladmnjffgaplkjhjnhfgifbmcdcoldj" },
-  });
-  assert.equal(ok.statusCode, 204);
-  assert.equal(ok.headers["access-control-allow-origin"], "chrome-extension://fladmnjffgaplkjhjnhfgifbmcdcoldj");
+  // ストアから入れた拡張と、手元のフォルダから読み込んだ拡張の両方を通す
+  for (const id of ["ablpkoopbapflpebboofalooocmhpbcm", "fladmnjffgaplkjhjnhfgifbmcdcoldj"]) {
+    const ok = await call("OPTIONS", "/api/tags", { headers: { origin: `chrome-extension://${id}` } });
+    assert.equal(ok.statusCode, 204);
+    assert.equal(ok.headers["access-control-allow-origin"], `chrome-extension://${id}`);
+  }
 
   const ng = await call("OPTIONS", "/api/tags", { headers: { origin: "https://evil.example" } });
   assert.equal(ng.headers["access-control-allow-origin"], undefined);

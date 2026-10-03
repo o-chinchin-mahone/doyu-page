@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>どゆ 運用（__STAGE__）</title>
+<style nonce="__NONCE__">
+  :root { --line: #d0d0d0; --sub: #666; --bad: #b00020; --accent: #1a5fb4; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.6 system-ui, "Yu Gothic UI", "Hiragino Sans", sans-serif; color: #222; background: #fafafa; }
+  header { padding: 12px 20px; background: #2e7d32; color: #fff; display: flex; align-items: baseline; gap: 16px; position: sticky; top: 0; z-index: 1; }
+  header .stage { font-size: 28px; font-weight: 700; letter-spacing: .05em; }
+  body.prod header { background: var(--bad); }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 20px 60px; }
+  section { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 14px 18px; margin: 16px 0; }
+  h2 { font-size: 18px; margin: 0 0 10px; }
+  label { display: block; margin: 8px 0; font-size: 13px; color: var(--sub); }
+  input, select, textarea, button { font: inherit; }
+  input[type=text], select, textarea { display: block; width: 100%; padding: 6px 8px; border: 1px solid #aaa; border-radius: 4px; color: #222; background: #fff; }
+  textarea { min-height: 110px; }
+  button { padding: 5px 12px; border: 1px solid #888; border-radius: 4px; background: #f2f2f2; cursor: pointer; }
+  button:hover { background: #e6e6e6; }
+  button.danger { border-color: var(--bad); color: var(--bad); background: #fff; }
+  button.danger.armed { background: var(--bad); color: #fff; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-top: 1px solid var(--line); font-size: 14px; overflow-wrap: anywhere; }
+  th { font-size: 12px; color: var(--sub); font-weight: 600; white-space: nowrap; }
+  td.ops { white-space: nowrap; }
+  td.ops button { margin: 0 4px 4px 0; }
+  tr.reported td { background: #fff6d6; }
+  .mark { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 3px; background: #b26a00; color: #fff; font-size: 12px; }
+  .state-removed { color: var(--bad); }
+  .state-muted, .state-expired { color: var(--sub); }
+  .sub { color: var(--sub); font-size: 13px; }
+  .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .row > label { flex: 1 1 200px; margin: 4px 0; }
+  .below { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+  #msg { position: fixed; right: 16px; bottom: 16px; max-width: 420px; padding: 10px 14px; border-radius: 6px; background: #222; color: #fff; }
+  #msg.bad { background: var(--bad); }
+  #msg:empty { display: none; }
+  dialog { border: 1px solid #888; border-radius: 8px; padding: 18px 20px; width: min(520px, 92vw); }
+  dialog::backdrop { background: rgba(0, 0, 0, .4); }
+  dialog h3 { margin: 0 0 8px; font-size: 17px; }
+  dialog dl { margin: 8px 0; padding: 8px 10px; background: #f4f4f4; border-radius: 4px; }
+  dialog dt { font-size: 12px; color: var(--sub); }
+  dialog dd { margin: 0 0 6px; overflow-wrap: anywhere; font-weight: 600; }
+  dialog .buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+  #ask-error { color: var(--bad); min-height: 1.6em; margin: 6px 0 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body class="__STAGE__">
+<header>
+  <span class="stage">__STAGE__</span>
+  <span id="where"></span>
+</header>
+<main>
+
+<section>
+  <h2>1. 申出を処理する</h2>
+  <label>届いたメールの本文を貼る（貼ると下の欄に入ります。保存はしません）
+    <textarea id="mail"></textarea></label>
+  <p id="mail-note" class="sub"></p>
+  <div class="row">
+    <label>ページの URL <input type="text" id="url" placeholder="https://"></label>
+    <label>タグ <input type="text" id="tag"></label>
+    <label>号 <select id="clause"></select></label>
+    <button id="look">見る</button>
+  </div>
+  <div id="page" hidden>
+    <p id="page-url"></p>
+    <table>
+      <thead><tr><th>タグ</th><th>付いた日</th><th>状態</th><th>操作</th></tr></thead>
+      <tbody id="page-rows"></tbody>
+    </table>
+    <div class="below">
+      <button id="remove-all" class="danger">このページのタグを全部消す</button>
+      <button id="deny-page" class="danger">このページへのタグ付けを止める</button>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>2. 最近付いたタグ</h2>
+  <button id="reload">読み込み直す</button> <span id="recent-note" class="sub"></span>
+  <table>
+    <thead><tr><th>タグ</th><th>ページ</th><th>付いた日</th><th>状態</th><th>操作</th></tr></thead>
+    <tbody id="recent-rows"></tbody>
+  </table>
+</section>
+
+<section>
+  <h2>3. 止めているもの</h2>
+  <p class="sub">ここに入れたタグ・サイト・ページには、新しくタグを付けられなくなります。すでに付いているタグは消えません。</p>
+  <div class="row">
+    <label>種類
+      <select id="deny-kind">
+        <option value="tag">タグ（どのページでも）</option>
+        <option value="domain">サイト</option>
+        <option value="url">ページ</option>
+      </select></label>
+    <label>対象 <input type="text" id="deny-value"></label>
+    <button id="deny-add" class="danger">止める</button>
+  </div>
+  <table>
+    <thead><tr><th>種類</th><th>対象</th><th>理由</th><th>操作</th></tr></thead>
+    <tbody id="deny-rows"></tbody>
+  </table>
+</section>
+
+<section>
+  <h2>4. 消した記録</h2>
+  <table>
+    <thead><tr><th>いつ</th><th>ページ</th><th>タグ</th><th>号</th><th>理由</th><th>操作</th></tr></thead>
+    <tbody id="removal-rows"></tbody>
+  </table>
+</section>
+
+</main>
+
+<dialog id="ask">
+  <h3 id="ask-title"></h3>
+  <p id="ask-note" class="sub"></p>
+  <dl id="ask-target"></dl>
+  <label id="ask-clause-row">号（必須） <select id="ask-clause"></select></label>
+  <label id="ask-reason-row"><span id="ask-reason-label"></span> <input type="text" id="ask-reason" maxlength="500"></label>
+  <label id="ask-reporter-row">申出者の名前（記録に残すときだけ） <input type="text" id="ask-reporter" maxlength="200"></label>
+  <p id="ask-error"></p>
+  <div class="buttons">
+    <button id="ask-cancel">やめる</button>
+    <button id="ask-go" class="danger"></button>
+  </div>
+</dialog>
+<p id="msg" role="status"></p>
+
+<script nonce="__NONCE__">
+"use strict";
+const STAGE = "__STAGE__";
+const WHERE = __WHERE__;
+const CLAUSES = __CLAUSES__;
+// メール本文の読み取り。admin-lib.mjs の関数をそのまま配っている（テストはあちらで通している）
+__PARSE__
+
+const $ = (id) => document.getElementById(id);
+
+// ★タグ・URL・題名は必ず文字として入れる（innerHTML を使わない）。投稿された文字列がそのまま出るため
+const el = (tag, props = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "onclick") e.addEventListener("click", v);
+    else if (k === "class") e.className = v;
+    else e[k] = v;
+  }
+  e.append(...kids.filter((k) => k !== null && k !== undefined));
+  return e;
+};
+
+const when = (t) => (t ? new Date(t).toLocaleString("ja-JP") : "");
+
+let msgTimer = null;
+const say = (text, bad = false) => {
+  $("msg").textContent = text;
+  $("msg").className = bad ? "bad" : "";
+  clearTimeout(msgTimer);
+  if (!bad) msgTimer = setTimeout(() => { $("msg").textContent = ""; }, 5000);
+};
+
+const api = async (path, body) => {
+  const res = await fetch(path, body === undefined ? {} : {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "失敗しました（" + res.status + "）");
+  return data;
+};
+
+// ---- 号の選択肢 ---------------------------------------------------------
+for (const id of ["clause", "ask-clause"]) {
+  $(id).append(el("option", { value: "" }, "選んでください"));
+  for (const c of CLAUSES) $(id).append(el("option", { value: c.n }, c.label));
+}
+$("where").textContent = WHERE;
+
+// ---- 確かめる窓。消す・止めるは必ずここを通る ----------------------------
+//   本番（prod）では、対象を見せたうえで、もう1回押してもらう
+let pending = null;
+const ask = ({ title, note = "", lines, clause = false, reason = null, reporter = false, danger = true, go, run }) => {
+  pending = { clause, reason, danger, go, run, armed: false };
+  $("ask-title").textContent = title;
+  $("ask-note").textContent = note;
+  $("ask-target").replaceChildren(...lines.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
+  $("ask-clause-row").hidden = !clause;
+  $("ask-clause").value = clause ? $("clause").value : "";
+  $("ask-reason-row").hidden = reason === null;
+  $("ask-reason-label").textContent = reason === "required" ? "理由（必須。記録に残ります）" : "理由（書けば記録に残ります）";
+  $("ask-reason").value = "";
+  $("ask-reporter-row").hidden = !reporter;
+  $("ask-reporter").value = "";
+  $("ask-error").textContent = "";
+  $("ask-go").textContent = go;
+  $("ask-go").className = danger ? "danger" : "";
+  $("ask").showModal();
+};
+const disarm = () => {
+  if (!pending || !pending.armed) return;
+  pending.armed = false;
+  $("ask-go").textContent = pending.go;
+  $("ask-go").className = "danger";
+};
+for (const id of ["ask-clause", "ask-reason", "ask-reporter"]) $(id).addEventListener("input", disarm);
+$("ask-cancel").addEventListener("click", () => $("ask").close());
+$("ask-go").addEventListener("click", async () => {
+  const p = pending;
+  const f = { clause: $("ask-clause").value, reason: $("ask-reason").value.trim(), reporter: $("ask-reporter").value.trim() };
+  // ★号なしでは進めない（サーバーでも弾く）
+  if (p.clause && !f.clause) { $("ask-error").textContent = "号を選んでください"; return; }
+  if (p.reason === "required" && !f.reason) { $("ask-error").textContent = "理由を書いてください"; return; }
+  if (p.danger && STAGE === "prod" && !p.armed) {
+    p.armed = true;
+    $("ask-go").textContent = "本番です。もう一度押すと実行します";
+    $("ask-go").className = "danger armed";
+    return;
+  }
+  $("ask-go").disabled = true;
+  try {
+    await p.run(f);
+    $("ask").close();
+    await reload();
+  } catch (e) {
+    $("ask-error").textContent = e.message;
+  } finally {
+    $("ask-go").disabled = false;
+  }
+});
+
+// 窓を通さない操作（隠すのをやめる・戻す・外す）
+const direct = async (body, done) => {
+  try { await api("/api/act", body); say(done); await reload(); } catch (e) { say(e.message, true); }
+};
+
+// ---- 1行分の操作 --------------------------------------------------------
+const key = (t) => ({ url_hash: t.url_hash, tag_id: t.tag_id });
+const target = (t) => [["タグ", t.tag_text || t.tag], ["ページ", t.url]];
+
+const askRemove = (t) => ask({
+  title: "このタグを消す", note: "検索からもページからも消えます。30日は戻せます。",
+  lines: target(t), clause: true, reason: "required", reporter: true, go: "消す",
+  run: async (f) => { await api("/api/act", { action: "remove", ...key(t), ...f }); say("消しました"); },
+});
+const askMute = (t) => ask({
+  title: "このタグを隠す", note: "ページ上から見えなくなります。検索には出ます。",
+  lines: target(t), reason: "required", danger: false, go: "隠す",
+  run: async (f) => { await api("/api/act", { action: "mute", ...key(t), reason: f.reason }); say("隠しました"); },
+});
+const restore = (t) => direct({ action: "restore", ...key(t) }, "戻しました");
+
+const STATE = { shown: "表示中", expired: "表示期間切れ（検索には出る）", muted: "隠している" };
+const stateText = (t) => (t.state === "removed"
+  ? "削除済み（" + (t.clause ? t.clause + "号" : "号の記録なし") + "）" : STATE[t.state]);
+
+const ops = (t) => {
+  if (t.state === "removed") return [el("button", { onclick: () => restore(t) }, "戻す")];
+  return [
+    el("button", { class: "danger", onclick: () => askRemove(t) }, "消す"),
+    t.state === "muted"
+      ? el("button", { onclick: () => direct({ action: "unmute", ...key(t) }, "隠すのをやめました") }, "隠すのをやめる")
+      : el("button", { onclick: () => askMute(t) }, "隠す"),
+  ];
+};
+
+// 開けるのは http / https だけ（それ以外の形の文字列をリンクにしない）
+const link = (url) => (/^https?:\/\//.test(url || "")
+  ? el("a", { href: url, target: "_blank", rel: "noreferrer noopener" }, url) : el("span", {}, url || ""));
+
+const tagRow = (t, { withUrl = false, reported = false } = {}) => el("tr", { class: reported ? "reported" : "" },
+  el("td", {}, t.tag_text, reported ? el("span", { class: "mark" }, "申出のタグ") : null),
+  withUrl ? el("td", {}, link(t.url), t.title ? el("div", { class: "sub" }, t.title) : null) : null,
+  el("td", {}, when(t.created_at)),
+  el("td", { class: "state-" + t.state }, stateText(t)),
+  el("td", { class: "ops" }, ...ops(t)),
+);
+
+const empty = (cols, text) => el("tr", {}, el("td", { colSpan: cols, class: "sub" }, text));
+
+// ---- 1. 申出を処理する ---------------------------------------------------
+let page = null;   // いま見ているページ
+let asked = null;  // 「見る」を押したときの入力（読み込み直すときに使う）
+
+$("mail").addEventListener("input", () => {
+  const r = parseReport($("mail").value);
+  if (r.url) $("url").value = r.url;
+  if (r.tag) $("tag").value = r.tag;
+  if (r.clause) $("clause").value = r.clause;
+  if (r.kind === "domain") {
+    // サイト全体の申出は、タグを消すのではなくサイトを止める。3 の欄に入れておく
+    $("deny-kind").value = "domain";
+    $("deny-value").value = r.url;
+    $("mail-note").textContent = "サイト全体の申出です。認めるときは、下の「3. 止めているもの」でサイトを止めます。";
+  } else {
+    $("mail-note").textContent = r.url || r.tag || r.clause ? "" : ($("mail").value.trim() ? "読み取れる項目がありません。下の欄に手で入れてください。" : "");
+  }
+});
+
+const renderPage = () => {
+  $("page").hidden = !page;
+  if (!page) return;
+  $("page-url").replaceChildren(link(page.url), page.denied ? el("span", { class: "mark" }, "タグ付けを止めています") : "");
+  $("page-rows").replaceChildren(...(page.tags.length
+    ? page.tags.map((t) => tagRow(t, { reported: t.tag_id === page.reported_tag_id }))
+    : [empty(4, "このページにタグは付いていません")]));
+  const live = page.tags.filter((t) => t.state !== "removed").length;
+  $("remove-all").disabled = live === 0;
+  $("deny-page").disabled = page.denied;
+};
+
+const loadPage = async () => {
+  if (!asked) return;
+  page = await api("/api/page?url=" + encodeURIComponent(asked.url) + "&tag=" + encodeURIComponent(asked.tag));
+  renderPage();
+};
+
+$("look").addEventListener("click", async () => {
+  asked = { url: $("url").value.trim(), tag: $("tag").value.trim() };
+  try {
+    await loadPage();
+    if (asked.tag && !page.tags.some((t) => t.tag_id === page.reported_tag_id)) say("申出のタグは、このページには付いていません", true);
+    else say("");
+  } catch (e) { page = null; renderPage(); say(e.message, true); }
+});
+
+$("remove-all").addEventListener("click", () => {
+  const live = page.tags.filter((t) => t.state !== "removed");
+  ask({
+    title: "このページのタグを全部消す", note: "検索からもページからも消えます。30日は戻せます。",
+    lines: [["ページ", page.url], ["消すタグ（" + live.length + "件）", live.map((t) => t.tag_text).join(" / ")]],
+    clause: true, reason: "required", reporter: true, go: "全部消す",
+    run: async (f) => {
+      const r = await api("/api/act", { action: "remove-all", url_hash: page.url_hash, ...f });
+      say(r.count + "件消しました");
+    },
+  });
+});
+
+$("deny-page").addEventListener("click", () => ask({
+  title: "このページへのタグ付けを止める", note: "新しくタグを付けられなくなります。すでに付いているタグは消えません。",
+  lines: [["ページ", page.url]], reason: "optional", go: "止める",
+  run: async (f) => { await api("/api/act", { action: "deny", kind: "url", value: page.url, reason: f.reason }); say("止めました"); },
+}));
+
+// ---- 3. 止めているもの ---------------------------------------------------
+const KIND = { tag: "タグ", domain: "サイト", url: "ページ" };
+
+$("deny-add").addEventListener("click", () => {
+  const kind = $("deny-kind").value, value = $("deny-value").value.trim();
+  if (!value) { say("止める対象を書いてください", true); return; }
+  ask({
+    title: KIND[kind] + "を止める", note: "新しくタグを付けられなくなります。すでに付いているタグは消えません。",
+    lines: [["種類", KIND[kind]], ["対象", value]], reason: "optional", go: "止める",
+    run: async (f) => {
+      await api("/api/act", { action: "deny", kind, value, reason: f.reason });
+      $("deny-value").value = "";
+      say("止めました");
+    },
+  });
+});
+
+// ---- 2〜4 の一覧 ---------------------------------------------------------
+const loadOverview = async () => {
+  const o = await api("/api/overview");
+  $("recent-rows").replaceChildren(...(o.tags.length
+    ? o.tags.map((t) => tagRow(t, { withUrl: true })) : [empty(5, "タグはありません")]));
+  $("recent-note").textContent = o.tags.length + "件" + (o.scanned >= o.limit ? "（件数が多いため、全部は出ていません）" : "");
+
+  $("deny-rows").replaceChildren(...(o.deny.length ? o.deny.map((d) => el("tr", {},
+    el("td", {}, KIND[d.kind] || d.sk),
+    el("td", {}, d.key),
+    el("td", {}, d.reason),
+    el("td", { class: "ops" }, el("button", {
+      onclick: () => direct({ action: "undeny", kind: d.kind, key: d.key }, "外しました"),
+    }, "外す")),
+  )) : [empty(4, "止めているものはありません")]));
+
+  $("removal-rows").replaceChildren(...(o.removals.length ? o.removals.map((l) => el("tr", {},
+    el("td", {}, when(l.ts)),
+    el("td", {}, link(l.url)),
+    el("td", {}, l.tag),
+    el("td", {}, l.clause ? l.clause + "号" : ""),
+    el("td", {}, l.reason),
+    el("td", { class: "ops" }, l.restorable
+      ? el("button", { onclick: () => restore(l) }, "戻す") : el("span", { class: "sub" }, "戻し済み")),
+  )) : [empty(6, "消した記録はありません")]));
+};
+
+const reload = async () => {
+  try { await Promise.all([loadOverview(), loadPage()]); } catch (e) { say(e.message, true); }
+};
+$("reload").addEventListener("click", reload);
+reload();
+</script>
+</body>
+</html>

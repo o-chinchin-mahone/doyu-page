@@ -25,8 +25,7 @@
 //     STAGE=dev node scripts/admin.mjs deny-list
 import { readFileSync } from "node:fs";
 import { STAGE, names } from "./config.mjs";
-import { normalizeUrl } from "../src/normalize.mjs";
-import { prepareTag } from "../src/tag.mjs";
+import { createAdmin, AdminError } from "./admin-lib.mjs";
 
 // ★ store.mjs は読み込み時に TABLE_NAME を見て、無ければメモリ実装に落ちる。
 //   そのまま import すると、削除したつもりで何も削除されない（「見つかりません」と言われる）。
@@ -43,7 +42,9 @@ if (!process.env.TABLE_NAME) {
 // 「どこを触るのか」を必ず先に出す。取り違えて消すのが一番まずい
 console.error(`[${STAGE}] ${process.env.TABLE_NAME}${process.env.DDB_ENDPOINT ? `（${process.env.DDB_ENDPOINT}）` : ""}`);
 
-const RULES = JSON.parse(readFileSync(new URL("../src/data/norm-rules.json", import.meta.url), "utf8"));
+// 操作の本体は admin-lib.mjs にある。運用用ページ（admin-page.mjs）と同じものを呼ぶ
+const admin = createAdmin({ store, isDisplayable });
+const { locate, life, shownWith } = admin;
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
@@ -53,25 +54,9 @@ const flag = (name, fallback = null) => {
 const positional = args.filter((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"));
 const [command, ...rest] = positional;
 
-const locate = async (rawUrl, rawTag) => {
-  const n = normalizeUrl(rawUrl, RULES);
-  const hash = store.urlHash(n.url);
-
-  const tag = rawTag ? prepareTag(rawTag) : null;
-  return { url: n.url, hash, tag };
-};
-
 const die = (msg) => { console.error(msg); process.exit(1); };
-
-// ページ上に見えているか。判定はサーバーと同じ関数を使う（ここで別実装すると必ずずれる）
-// 使い方を出すだけで DynamoDB を叩かないよう、必要になってから読む
-let CONFIG = null;
-const life = async () => {
-  CONFIG ??= await store.config();
-  return { grace_days: CONFIG.display_grace_days, life_days: CONFIG.display_life_days };
-};
-const shownWith = (l) => (row) =>
-  (row.status === "active" || row.status === "collapsed") && isDisplayable(row, l);
+// 「見つかりません」などは文面だけ出して終わる。それ以外（AWS の失敗など）はそのまま落とす
+const orDie = (e) => { if (e instanceof AdminError) die(e.message); throw e; };
 
 switch (command) {
   case "show": {
@@ -103,16 +88,10 @@ switch (command) {
     if (!reason) die("--reason を指定してください（記録に残ります）");
 
     const { url, hash, tag } = await locate(rawUrl, rawTag);
-    const before = await store.getTag(hash, tag.tag_id);
-    if (!before) die("そのタグは見つかりません");
-
     const status = command === "remove" ? "removed" : "quarantined";
-    await store.setTagStatus(hash, tag.tag_id, status);
-    await store.putTakedownLog({
-      action: status, url, url_hash: hash, tag: before.tag_text, tag_id: tag.tag_id,
-      clause, reason, reporter: flag("from"),
-    });
-    const v = await store.denyVersion();
+    const { before, deny_version: v } = await admin.remove({
+      hash, tag_id: tag.tag_id, url, clause, reason, reporter: flag("from"), status,
+    }).catch(orDie);
     console.log(`✓ ${status}: 「${before.tag_text}」 ${url}`);
     console.log(`  記録: LOG# に保存（第${clause}号 / ${reason}）`);
     console.log(`  検索からもページからも消えました。30日は restore で戻せます`);
@@ -129,14 +108,10 @@ switch (command) {
     const reason = flag("reason");
     if (command === "mute" && !reason) die("--reason を指定してください（記録に残ります）");
     const { url, hash, tag } = await locate(rawUrl, rawTag);
-    const before = await store.getTag(hash, tag.tag_id);
-    if (!before) die("そのタグは見つかりません");
     const status = command === "mute" ? "muted" : "active";
-    await store.setTagStatus(hash, tag.tag_id, status);
-    await store.putTakedownLog({
-      action: status === "muted" ? "muted" : "unmuted", url, url_hash: hash,
-      tag: before.tag_text, tag_id: tag.tag_id, reason: reason ?? null,
-    });
+    const { before } = await (command === "mute" ? admin.mute : admin.unmute)({
+      hash, tag_id: tag.tag_id, url, reason,
+    }).catch(orDie);
     console.log(`✓ ${status === "muted" ? "非表示" : "表示に戻した"}: 「${before.tag_text}」 ${url}`);
     console.log(status === "muted"
       ? "  ページ上からは見えなくなりました。検索では今までどおり出ます（記録は消えていません）"
@@ -148,13 +123,9 @@ switch (command) {
     const [rawUrl, rawTag] = rest;
     if (!rawUrl || !rawTag) die("URL と タグ を指定してください");
     const { url, hash, tag } = await locate(rawUrl, rawTag);
-    const before = await store.getTag(hash, tag.tag_id);
-    if (!before) die("そのタグは見つかりません");
-    await store.setTagStatus(hash, tag.tag_id, "active");
-    await store.putTakedownLog({
-      action: "restored", url, url_hash: hash, tag: before.tag_text, tag_id: tag.tag_id,
-      reason: flag("reason", "異議申立ての認容"),
-    });
+    const { before } = await admin.restore({
+      hash, tag_id: tag.tag_id, url, reason: flag("reason", "異議申立ての認容"),
+    }).catch(orDie);
     console.log(`✓ 復旧: 「${before.tag_text}」 ${url}`);
     break;
   }
@@ -163,11 +134,7 @@ switch (command) {
     const [kind, value] = rest;
     if (!["tag", "domain", "url"].includes(kind)) die("deny tag|domain|url <値>");
     if (!value) die("値を指定してください");
-    // タグは normalized_key を鍵にする（保存時と同じ形に揃える）
-    const key = kind === "tag" ? prepareTag(value).normalized_key
-      : kind === "url" ? store.urlHash(normalizeUrl(value, RULES).url)
-      : value;
-    const version = await store.addDeny(kind, key, { reason: flag("reason", "") });
+    const { key, version } = await admin.deny(kind, value, { reason: flag("reason", "") });
     console.log(`✓ 禁止リストに追加: ${kind} = ${key}`);
     console.log(`  deny_version: ${version}（クライアントは次の設定取得でキャッシュを捨てます）`);
     break;
@@ -177,10 +144,7 @@ switch (command) {
     const [kind, value] = rest;
     if (!["tag", "domain", "url"].includes(kind)) die("undeny tag|domain|url <値>");
     if (!value) die("値を指定してください");
-    const key = kind === "tag" ? prepareTag(value).normalized_key
-      : kind === "url" ? store.urlHash(normalizeUrl(value, RULES).url)
-      : value;
-    const version = await store.removeDeny(kind, key);
+    const { key, version } = await admin.undeny(kind, value);
     console.log(`✓ 禁止リストから外した: ${kind} = ${key}`);
     console.log(`  deny_version: ${version}`);
     break;
@@ -231,13 +195,10 @@ switch (command) {
   }
 
   case "deny-list": {
-    const db = await store.backend();
-    const { items } = await db.query({ pk: "DENY" });
-    // "VERSION" は世代カウンタで、禁止の中身ではない
-    const entries = items.filter((i) => i.sk !== "VERSION");
-    for (const i of entries) console.log(`  ${i.sk}  ${i.reason ?? ""}`);
+    const { entries, version } = await admin.denyList();
+    for (const i of entries) console.log(`  ${i.sk}  ${i.reason}`);
     if (!entries.length) console.log("  （なし）");
-    console.log(`  deny_version: ${items.find((i) => i.sk === "VERSION")?.deny_version ?? 0}`);
+    console.log(`  deny_version: ${version}`);
     break;
   }
 

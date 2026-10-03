@@ -98,7 +98,7 @@ java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory -s
 
 | 項目 | 値 | 変えるとどうなるか |
 |---|---|---|
-| 拡張ID | `fladmnjffgaplkjhjnhfgifbmcdcoldj`（`scripts/config.mjs`） | CORSで許可する相手。自分の拡張のIDに変える |
+| 拡張ID | `ablpkoopbapflpebboofalooocmhpbcm`（ストア版）と `fladmnjffgaplkjhjnhfgifbmcdcoldj`（手元の版）。`scripts/config.mjs` の `EXTENSION_IDS` | CORSで許可する相手。自分の拡張のIDに変える |
 | テーブル | `doyu-<stage>-main`（PK `pk` / SK `sk`） | |
 | GSI1 | `gsi1pk` / `s`（人気順） | |
 | GSI2 | `gsi2pk` / `created_at`（新着順） | |
@@ -116,6 +116,7 @@ java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory -s
 
 ```bash
 doyu.bat                         # Windows。タグの中身を見る・消す・隠す・戻す・禁止リスト（scripts/admin.mjs）
+STAGE=<stage> npm run admin:page # 同じ操作を画面から押す。手元の http://127.0.0.1:3001 だけで開く（scripts/admin-page.mjs）
 STAGE=<stage> npm run infra      # テーブル・ロールを作る
 STAGE=<stage> npm run deploy     # 手元から出すのは dev だけ
 STAGE=<stage> npm run smoke      # 動作確認
