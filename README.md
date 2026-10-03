@@ -7,9 +7,20 @@
 - 評価や投票の画面は持たない。並びを決めるのは「検索結果から実際に開かれた回数」だけ
 - 無料・広告なし
 
-```
-クライアント ─→ Cloudflare Worker（連打の制限・貸しサーバーからの書き込み拒否・中継）
-               └→ Lambda（Function URL）─→ DynamoDB（1テーブル + GSI×2）
+## 構成
+
+```mermaid
+flowchart LR
+  ext["Chrome 拡張"] --> cf
+  web["ブラウザ<br>検索ページ・利用規約など"] --> cf
+  cf["Cloudflare Worker<br>連打の制限<br>貸しサーバーからの書き込み拒否<br>中継"] -->|"合言葉を付けて中継"| fn
+  fn["Lambda<br>Function URL"] --> db[("DynamoDB<br>1テーブル + GSI×2")]
+  fn -.->|"タグを付ける前に<br>誰でも見られるページか確かめる"| site["タグを付ける先のサイト"]
+  ssm["SSM<br>招待コード・署名鍵<br>合言葉・許可IP"] -.->|"デプロイのときに読む"| fn
+  budget["AWS Budgets<br>月 1 ドル"] -->|"超えたら"| sns["SNS"]
+  sns --> stop["停止用 Lambda"]
+  stop -.->|"dev は止める<br>prod は絞る"| fn
+  budget -.-> mail["メールで通知"]
 ```
 
 ## いまの状態
