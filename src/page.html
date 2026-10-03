@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>どゆページ</title>
+<style>
+  :root { color-scheme: light dark; --line: #dcdcdc; --muted: #6b6b6b; --accent: #1a6b5a; --bg-soft: #f6f6f4; }
+  @media (prefers-color-scheme: dark) { :root { --line: #333; --muted: #999; --accent: #6fd1b8; --bg-soft: #1b1b1b; } }
+  body { font: 15px/1.7 system-ui, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; margin: 0 auto; padding: 16px 16px 32px; max-width: 680px; }
+  .mark { display: inline-block; width: 4px; height: 15px; background: var(--accent); border-radius: 2px; vertical-align: -2px; margin-right: 8px; }
+  h1 { font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 18px; }
+  h2 { font-size: 15px; margin: 4px 0; word-break: break-word; }
+  ul { list-style: none; padding: 0; margin: 8px 0 0; }
+  li { padding: 9px 0; border-top: 1px solid var(--line); }
+  li a { color: inherit; text-decoration: none; font-weight: 600; }
+  li a:hover { color: var(--accent); }
+  .muted { color: var(--muted); font-size: 12px; }
+  .err { color: #c0392b; font-size: 13px; }
+  input { width: 100%; box-sizing: border-box; padding: 8px 10px; font: inherit; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; margin-top: 8px; }
+  #q { border-color: var(--accent); }
+  .orders { display: flex; gap: 6px; margin: 10px 0 2px; }
+  .orders button { font: inherit; font-size: 13px; padding: 3px 12px; border-radius: 999px; cursor: pointer;
+                   border: 1px solid var(--line); background: transparent; color: inherit; }
+  .orders button.on { border-color: var(--accent); font-weight: 600; }
+  .domain { font-size: 13px; font-weight: 600; }
+  #search { margin-bottom: 18px; }
+  footer { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; line-height: 2; }
+  a { color: var(--accent); }
+  details { margin-top: 28px; font-size: 13px; color: var(--muted); }
+  summary { cursor: pointer; }
+</style>
+</head>
+<body>
+<h1><span class="mark"></span>どゆページ</h1>
+
+<!-- ドメイン内検索。タグは自由に打てる。ドメインは見ているページから決まる（docs/00 §2） -->
+<section id="search" hidden>
+  <div class="domain" id="domain"></div>
+  <input id="q" autocomplete="off" placeholder="タグを入力して Enter">
+  <div class="muted">このドメインの中だけを探します。</div>
+</section>
+
+<section id="results" hidden>
+  <h2 id="head"></h2>
+  <div id="orders" class="orders">
+    <button type="button" data-order="newest" class="on">新着順</button>
+    <button type="button" data-order="popular">人気順</button>
+  </div>
+  <ul id="list"></ul>
+  <div id="err" class="err"></div>
+</section>
+
+<section id="intro" hidden>
+  <p>タグから、同じドメインの中のページを探すページです。拡張機能でタグを押すと開きます。</p>
+</section>
+
+<details id="settings">
+  <summary>設定</summary>
+  <input id="invite" autocomplete="off" placeholder="招待コード">
+  <div class="muted" id="params"></div>
+</details>
+
+<footer class="muted">
+  <a href="/terms">利用規約</a>　<a href="/privacy">プライバシーポリシー</a>　<a href="/takedown">削除の申出</a>　<a href="/transmission">外部送信について</a>　<a href="/source">ソースコード</a>
+</footer>
+
+<script type="module" src="/assets/page.js"></script>
+</body>
+</html>

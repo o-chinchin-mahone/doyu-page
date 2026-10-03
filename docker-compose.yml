@@ -1,0 +1,7 @@
+# テスト用の DynamoDB Local（メモリ実装では GSI・条件付き書き込み・TTL・ReturnValues を検証できない）
+services:
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+    ports:
+      - "8000:8000"

@@ -1,0 +1,15 @@
+{
+  "note": "書き込み経路のブロックリスト（docs/05 §5）。fail-open で必ず漏れるので、単独の保証としては使わない",
+  "schemes": ["file", "chrome", "chrome-extension", "about", "view-source", "data", "blob", "javascript", "ftp"],
+  "host_suffixes": [
+    "go.jp", "lg.jp", "gov", "mil", "police.jp",
+    "internal", "local", "localdomain", "corp", "home.arpa", "onion"
+  ],
+  "sensitive_params": [
+    "token", "access_token", "id_token", "refresh_token", "session", "sessionid", "sid",
+    "password", "passwd", "pwd", "secret", "key", "apikey", "api_key", "signature", "sig",
+    "auth", "authorization", "code", "otp", "invite", "share", "sharing", "email", "tel"
+  ],
+  "host_denylist": [],
+  "host_denylist_note": "違法アップロード常習ドメイン（docs/07 §3.6）。刑事罰があるため運用で追記する。ここに入れたドメインはタグ作成そのものを拒否する"
+}

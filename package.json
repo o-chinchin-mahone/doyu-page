@@ -1,0 +1,35 @@
+{
+  "name": "doyu",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node local.mjs",
+    "test": "node --test test/handler.test.mjs test/table.test.mjs test/isolation.test.mjs test/legal.test.mjs test/normalize.test.mjs test/tag.test.mjs test/blocklist.test.mjs test/api.test.mjs",
+    "test:ddb": "node scripts/ddb-local.mjs && DDB_ENDPOINT=http://127.0.0.1:8000 TABLE_NAME=doyu-test-main node --test test/handler.test.mjs test/table.test.mjs test/isolation.test.mjs test/legal.test.mjs test/normalize.test.mjs test/tag.test.mjs test/blocklist.test.mjs test/api.test.mjs",
+    "ddb:up": "docker compose up -d",
+    "ddb:down": "docker compose down",
+    "ddb:init": "node scripts/ddb-local.mjs",
+    "gen-psl": "node scripts/gen-psl.mjs",
+    "infra": "node scripts/infra.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "admin": "node scripts/admin.mjs",
+    "allow-me": "node scripts/allow-me.mjs",
+    "guard": "node scripts/guard.mjs",
+    "resume": "node scripts/resume.mjs",
+    "destroy": "node scripts/destroy.mjs",
+    "test:ddb:ci": "node --test test/handler.test.mjs test/table.test.mjs test/isolation.test.mjs test/legal.test.mjs test/normalize.test.mjs test/tag.test.mjs test/blocklist.test.mjs test/api.test.mjs"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-budgets": "^3.1134.0",
+    "@aws-sdk/client-dynamodb": "^3.1134.0",
+    "@aws-sdk/client-iam": "^3.1134.0",
+    "@aws-sdk/client-lambda": "^3.1134.0",
+    "@aws-sdk/client-sns": "^3.1134.0",
+    "@aws-sdk/client-ssm": "^3.1134.0",
+    "@aws-sdk/client-sts": "^3.1134.0",
+    "@aws-sdk/lib-dynamodb": "^3.1134.0",
+    "adm-zip": "^0.5.16"
+  }
+}

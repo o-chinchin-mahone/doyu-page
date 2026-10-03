@@ -1,0 +1,5 @@
+node_modules/
+extension/key.pem
+*.pem
+.env
+.dynamodb-local/

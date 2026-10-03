@@ -1,0 +1,6 @@
+{
+  "norm_v": 2,
+  "note": "URL正規化ルール（全サイト共通。サイト別の表は持たない ← 2026-09-23 の決定）。サーバーが GET /v1/norm-rules で配信し、Web面・拡張は同じ解釈器で適用する",
+  "strip_www": true,
+  "drop_fragment": true
+}

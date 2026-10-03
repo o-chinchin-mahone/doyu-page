@@ -1,0 +1,45 @@
+# Cloudflare Worker の設定（docs/09 M5）
+#   dev:  cd cloudflare && npx wrangler deploy
+#   prod: cd cloudflare && npx wrangler deploy --env prod
+#   秘密の設定: npx wrangler secret put ORIGIN        [--env prod]  # Function URL（リポジトリに置かない）
+#              npx wrangler secret put ORIGIN_SECRET [--env prod]  # Lambda と共有する合言葉
+#
+#   ★秘密は PowerShell のパイプで渡さない。値が壊れて Worker が Invalid URL で落ちる。
+#     Git Bash から `cat file | npx wrangler secret put NAME` で入れること（2026-09-29 に踏んだ）
+name = "doyu-dev"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# 招待コードを外す（G1b）まで、エッジキャッシュは有効にしない。
+# Free プランはキャッシュキーにヘッダを含められず、招待コード無しの相手に
+# 取得済みのレスポンスを返してしまうため（worker.js のコメント参照）
+[vars]
+EDGE_CACHE = "off"
+
+# レート制限（1IPあたり 60秒で 60 リクエスト）。
+#   ★ダッシュボードのレート制限ルールは「ゾーン（独自ドメイン）」にしか付かないので、
+#     workers.dev で動かす間は Worker 側のこの仕組みが唯一の連打対策になる。
+#   period は 10 か 60 しか取れない。namespace_id はステージごとに別にする
+[[unsafe.bindings]]
+name = "RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
+
+[env.prod]
+name = "doyu-prod"
+
+# ★[vars] は環境に継承されないので書き直す
+[env.prod.vars]
+EDGE_CACHE = "off"
+
+[[env.prod.unsafe.bindings]]
+name = "RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
+
+# ドメインに載せる（Cloudflare の画面でも設定できる）
+# [[routes]]
+# pattern = "api.doyu.page/*"
+# zone_name = "doyu.page"
