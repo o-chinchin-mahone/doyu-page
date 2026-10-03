@@ -23,6 +23,7 @@ flowchart LR
   budget -.-> mail["メールで通知"]
 ```
 
+
 ## いまの状態
 
 
