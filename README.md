@@ -23,6 +23,80 @@ flowchart LR
   budget -.-> mail["メールで通知"]
 ```
 
+### データの流れ
+
+どのデータがどこを通り、どこに残るかを、操作ごとに描いています。
+
+タグを見るとき
+
+```mermaid
+sequenceDiagram
+  participant P as 見ているページ
+  participant E as 拡張
+  participant W as Cloudflare Worker
+  participant L as Lambda
+  participant D as DynamoDB
+  P->>E: ページのURL（ブラウザの中だけ）
+  Note over E: URLをそろえてハッシュにする
+  E->>W: URLのハッシュ、招待コード
+  Note over W: IPで連打を数える。Cookieは落とす。IPは先へ渡さない
+  W->>L: URLのハッシュ、合言葉
+  L->>D: ハッシュで引く
+  D-->>L: そのページのタグ
+  Note over L: 表示期間を過ぎたタグと、電話番号などの形をしたタグを除く
+  L-->>E: タグの文字、付いた日時、開かれた回数
+  Note over E: 5分覚えておく。タグが無いことも10分覚える
+  E-->>P: 右下の枠にタグを出す
+```
+
+タグを付けるとき
+
+```mermaid
+sequenceDiagram
+  participant E as 拡張
+  participant W as Cloudflare Worker
+  participant L as Lambda
+  participant S as タグを付ける先のサイト
+  participant D as DynamoDB
+  E->>W: 初回だけ、匿名IDの発行を頼む
+  W->>L: 発行の依頼、合言葉
+  L-->>E: 匿名IDとトークン
+  E->>W: ページのURL、タグ、ページの題名、トークン、招待コード
+  Note over W: IPで連打を数える。貸しサーバーからの書き込みは断る
+  W->>L: 同じ内容、送り主のIP、合言葉
+  Note over L: URLとタグの形を検査する。連投を数える
+  L->>S: そのページを匿名で取りに行く
+  S-->>L: ページの中身（題名と noindex の有無だけを見る）
+  L->>D: 禁止リストを引く
+  L->>D: タグを保存する（URL、ハッシュ、タグ、題名、匿名ID）
+  L->>D: 発信者の記録を保存する（URL、タグ、匿名ID、IP、UA、日時。180日で消える）
+  L-->>E: 付いたことと、ハッシュ、タグのID
+```
+
+タグで探すとき
+
+```mermaid
+sequenceDiagram
+  participant E as 拡張
+  participant W as Cloudflare Worker
+  participant L as Lambda
+  participant D as DynamoDB
+  E->>W: サイトのドメイン、タグ、並び順、招待コード
+  W->>L: 同じ内容、合言葉
+  L->>D: ドメインとタグの組で引く
+  D-->>L: そのタグが付いたページ
+  L-->>E: ページのURL、題名、タグ、付いた日時
+  Note over E: 一覧からページを開く
+  E->>W: 開いたページのハッシュ、タグのID
+  W->>L: 同じ内容、送り主のIP、合言葉
+  Note over L: IPは使わず、保存もしない
+  L->>D: 開かれた回数を1つ足す（同じ組は10秒に1回まで）
+```
+
+このほかに外へ出るものは次の2つです。
+
+- 集計: 日付・ドメイン・件数を1日1回送ります。URLは含みません。設定で止められます。
+- 寄付: 拡張が支払いページ（Stripe）を開くだけです。このサーバーは通りません。
 
 ## いまの状態
 
