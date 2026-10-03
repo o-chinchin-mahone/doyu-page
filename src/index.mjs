@@ -1,5 +1,5 @@
 // Lambda Function URL（ペイロード v2.0）のハンドラ
-//   ルーティング / CORS / 招待コード / IP制限 だけを持ち、中身は tags.mjs に置く
+//   ルーティング / CORS / IP制限 だけを持ち、中身は tags.mjs に置く
 //   設計: docs/04 §7（APIの方針）、docs/01 §2.1（noindex）、docs/09 M1
 import { readFileSync } from "node:fs";
 import { BlockList, isIPv6 } from "node:net";
@@ -10,7 +10,6 @@ import { issueToken, verifyToken, newAnon, signCursor, verifyCursor } from "./to
 
 const STAGE = process.env.STAGE ?? "local";
 const EXTENSION_ID = process.env.EXTENSION_ID ?? "";
-const INVITE_CODE = process.env.INVITE_CODE ?? "";
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? "";
 // Cloudflare の Worker と共有する合言葉（docs/09 M5）。
 // 設定されている間は、Function URL への直撃を 403 で落とす。
@@ -62,7 +61,7 @@ for (const cidr of allowed) {
 }
 const ipAllowed = (ip) => !allowed.length || (!!ip && allowList.check(ip, isIPv6(ip) ? "ipv6" : "ipv4"));
 
-// 合言葉・招待コードは定数時間で比べる（=== は先頭一致の分だけ早く返り、総当たりの手掛かりになる）
+// 合言葉は定数時間で比べる（=== は先頭一致の分だけ早く返り、総当たりの手掛かりになる）
 const safeEqual = (a, b) => {
   const x = Buffer.from(String(a)), y = Buffer.from(String(b));
   return x.length === y.length && timingSafeEqual(x, y);
@@ -78,7 +77,7 @@ function corsHeaders(origin) {
   return {
     "access-control-allow-origin": origin,
     "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type,x-doyu-invite,x-doyu-token",
+    "access-control-allow-headers": "content-type,x-doyu-token",
     "access-control-max-age": "86400",
     vary: "origin",
   };
@@ -142,10 +141,6 @@ const legalPage = (name) => `<!doctype html>
 ${LEGAL[name]}
 <footer>どゆページ ／ お問い合わせ: abuse@doyu.page ／ <a href="/source">ソースコード</a></footer>
 </body></html>`;
-
-// 招待コード（M1 のクローズドβ用。allowedIps の CIDR 判定では相手のIPが変わると破綻する）
-const inviteOk = (event) =>
-  !INVITE_CODE || safeEqual(event.headers?.["x-doyu-invite"] ?? "", INVITE_CODE);
 
 const parseBody = (event) => {
   if (!event.body) return {};
@@ -274,7 +269,7 @@ export async function handler(event) {
     return json(200, { ok: true, stage: STAGE, norm_v: tags.RULES.norm_v, source: SOURCE_URL, version: VERSION }, cors);
   }
 
-  // 法務ページは誰でも読めなければ意味がない（IP制限・招待コードの手前に置く）
+  // 法務ページは誰でも読めなければ意味がない（IP制限の手前に置く）
   if (method === "GET" && LEGAL[path.slice(1)]) return html(200, legalPage(path.slice(1)), cors);
   if (method === "GET" && ASSETS[path]) {
     return {
@@ -296,9 +291,7 @@ export async function handler(event) {
     return { statusCode: 403, headers: { "content-type": "text/plain; charset=utf-8", ...cors }, body: `Forbidden (${ip})` };
   }
 
-  // 動作確認用の最小Web面と、そこから読み込む正規化の解釈器。
-  // ブラウザのナビゲーションには独自ヘッダを付けられないので、招待コードの手前に置く
-  // （中身はコードと静的HTMLだけで、タグのデータは返さない）
+  // 動作確認用の最小Web面と、そこから読み込む正規化の解釈器
   if (method === "GET" && (path === "/" || path === "/search")) return html(200, PAGE, cors);
   if (method === "GET" && path === "/v1/normalize.mjs") {
     return {
@@ -311,10 +304,6 @@ export async function handler(event) {
       },
       body: NORMALIZER,
     };
-  }
-
-  if (!inviteOk(event)) {
-    return json(403, { error: "invite_required" }, cors);
   }
 
   try {

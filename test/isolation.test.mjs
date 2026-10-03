@@ -15,10 +15,10 @@ test("ステージごとに別のリソース名になっている", () => {
   assert.equal(prod.table, "doyu-prod-main");
 });
 
-test("SSM は /doyu/<stage>/ の下に閉じている（招待コードと署名鍵がステージで別）", () => {
+test("SSM は /doyu/<stage>/ の下に閉じている（署名鍵がステージで別）", () => {
   for (const stage of STAGES) {
     const n = names(stage);
-    for (const param of [n.allowedIpsParam, n.inviteCodeParam, n.tokenSecretParam]) {
+    for (const param of [n.allowedIpsParam, n.tokenSecretParam, n.originSecretParam]) {
       assert.ok(param.startsWith(`/doyu/${stage}/`), `${param} が /doyu/${stage}/ の外にある`);
     }
   }
@@ -69,7 +69,7 @@ test("Worker はクライアントが名乗るヘッダを落としてから付�
   for (const h of ["x-doyu-origin", "x-doyu-client-ip", "cf-connecting-ip", "x-forwarded-for"]) {
     assert.ok(worker.includes(`"${h}"`), `${h} を落としていない`);
   }
-  // 招待コードがある間はエッジキャッシュを有効にしない（キャッシュキーにヘッダを含められない）
+  // エッジキャッシュは切り替えられる形で持つ（いまは off。理由は worker.js のコメント）
   assert.match(worker, /EDGE_CACHE === "on"/);
 });
 

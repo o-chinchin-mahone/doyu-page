@@ -16,87 +16,13 @@ flowchart LR
   cf["Cloudflare Worker<br>連打の制限<br>貸しサーバーからの書き込み拒否<br>中継"] -->|"合言葉を付けて中継"| fn
   fn["Lambda<br>Function URL"] --> db[("DynamoDB<br>1テーブル + GSI×2")]
   fn -.->|"タグを付ける前に<br>誰でも見られるページか確かめる"| site["タグを付ける先のサイト"]
-  ssm["SSM<br>招待コード・署名鍵<br>合言葉・許可IP"] -.->|"デプロイのときに読む"| fn
+  ssm["SSM<br>署名鍵・合言葉<br>許可IP"] -.->|"デプロイのときに読む"| fn
   budget["AWS Budgets<br>月 1 ドル"] -->|"超えたら"| sns["SNS"]
   sns --> stop["停止用 Lambda"]
   stop -.->|"dev は止める<br>prod は絞る"| fn
   budget -.-> mail["メールで通知"]
 ```
 
-### データの流れ
-
-どのデータがどこを通り、どこに残るかを、操作ごとに描いています。
-
-タグを見るとき
-
-```mermaid
-sequenceDiagram
-  participant P as 見ているページ
-  participant E as 拡張
-  participant W as Cloudflare Worker
-  participant L as Lambda
-  participant D as DynamoDB
-  P->>E: ページのURL（ブラウザの中だけ）
-  Note over E: URLをそろえてハッシュにする
-  E->>W: URLのハッシュ、招待コード
-  Note over W: IPで連打を数える。Cookieは落とす。IPは先へ渡さない
-  W->>L: URLのハッシュ、合言葉
-  L->>D: ハッシュで引く
-  D-->>L: そのページのタグ
-  Note over L: 表示期間を過ぎたタグと、電話番号などの形をしたタグを除く
-  L-->>E: タグの文字、付いた日時、開かれた回数
-  Note over E: 5分覚えておく。タグが無いことも10分覚える
-  E-->>P: 右下の枠にタグを出す
-```
-
-タグを付けるとき
-
-```mermaid
-sequenceDiagram
-  participant E as 拡張
-  participant W as Cloudflare Worker
-  participant L as Lambda
-  participant S as タグを付ける先のサイト
-  participant D as DynamoDB
-  E->>W: 初回だけ、匿名IDの発行を頼む
-  W->>L: 発行の依頼、合言葉
-  L-->>E: 匿名IDとトークン
-  E->>W: ページのURL、タグ、ページの題名、トークン、招待コード
-  Note over W: IPで連打を数える。貸しサーバーからの書き込みは断る
-  W->>L: 同じ内容、送り主のIP、合言葉
-  Note over L: URLとタグの形を検査する。連投を数える
-  L->>S: そのページを匿名で取りに行く
-  S-->>L: ページの中身（題名と noindex の有無だけを見る）
-  L->>D: 禁止リストを引く
-  L->>D: タグを保存する（URL、ハッシュ、タグ、題名、匿名ID）
-  L->>D: 発信者の記録を保存する（URL、タグ、匿名ID、IP、UA、日時。180日で消える）
-  L-->>E: 付いたことと、ハッシュ、タグのID
-```
-
-タグで探すとき
-
-```mermaid
-sequenceDiagram
-  participant E as 拡張
-  participant W as Cloudflare Worker
-  participant L as Lambda
-  participant D as DynamoDB
-  E->>W: サイトのドメイン、タグ、並び順、招待コード
-  W->>L: 同じ内容、合言葉
-  L->>D: ドメインとタグの組で引く
-  D-->>L: そのタグが付いたページ
-  L-->>E: ページのURL、題名、タグ、付いた日時
-  Note over E: 一覧からページを開く
-  E->>W: 開いたページのハッシュ、タグのID
-  W->>L: 同じ内容、送り主のIP、合言葉
-  Note over L: IPは使わず、保存もしない
-  L->>D: 開かれた回数を1つ足す（同じ組は10秒に1回まで）
-```
-
-このほかに外へ出るものは次の2つです。
-
-- 集計: 日付・ドメイン・件数を1日1回送ります。URLは含みません。設定で止められます。
-- 寄付: 拡張が支払いページ（Stripe）を開くだけです。このサーバーは通りません。
 
 ## いまの状態
 
@@ -105,25 +31,25 @@ sequenceDiagram
 文面は`src/legal/`に`terms.html` `privacy.html` `takedown.html` `transmission.html`を置くと、そのまま返ります。
 コメントにある`docs/04 §7`のような番号は設計メモのもので、メモもここには含みません。
 
-- 接続先（LambdaのFunction URL）・招待コード・署名鍵はリポジトリに置きません。SSMとWorkerの秘密に入れてあります。
-- 利用規約などのページはLambdaが直接返します。対象は`/terms` `/privacy` `/takedown` `/transmission` `/source` `/license`で、招待コードなしで読めます。
+- 接続先（LambdaのFunction URL）・署名鍵はリポジトリに置きません。SSMとWorkerの秘密に入れてあります。
+- 利用規約などのページはLambdaが直接返します。対象は`/terms` `/privacy` `/takedown` `/transmission` `/source` `/license`です。
 
 ## API
 
-招待コードは`x-doyu-invite`、トークンは`x-doyu-token`で渡します。招待コードが未設定のステージでは不要です。
+トークンは`x-doyu-token`で渡します。
 
 | | 要るもの | 内容 |
 |---|---|---|
-| `GET /v1/params` | 招待コード | `norm_v`・`deny_version`・`read_key` |
-| `GET /v1/norm-rules` | 招待コード | URLをそろえるルール（JSON。正規表現は配らない） |
+| `GET /v1/params` | なし | `norm_v`・`deny_version`・`read_key` |
+| `GET /v1/norm-rules` | なし | URLをそろえるルール（JSON。正規表現は配らない） |
 | `GET /v1/normalize.mjs` | なし | ↑を解釈する唯一の実装。サーバーと拡張が同じものを使う |
-| `POST /v1/hello` | 招待コード | 匿名IDとトークンの発行 |
-| `GET /v1/tags?hash=` | 招待コード | そのページのタグ。URLのハッシュで引く。付けた人・URL・IPは返さない |
-| `POST /v1/tags` | ＋トークン | タグを付ける |
-| `POST /v1/tags/undo` | ＋トークン | 自分が今付けたタグを取り消す（60秒以内） |
-| `GET /v1/search?domain=&tag=&order=` | 招待コード | サイト内検索。`order`は`newest`（既定）か`popular` |
-| `POST /v1/reach` | 招待コード | 検索結果からページを開いたことの記録。人気順と表示期間に使う |
-| `POST /v1/kpi` | ＋トークン | 日ごとの集計（日付・サイト・件数。URLを含まない） |
+| `POST /v1/hello` | なし | 匿名IDとトークンの発行 |
+| `GET /v1/tags?hash=` | なし | そのページのタグ。URLのハッシュで引く。付けた人・URL・IPは返さない |
+| `POST /v1/tags` | トークン | タグを付ける |
+| `POST /v1/tags/undo` | トークン | 自分が今付けたタグを取り消す（60秒以内） |
+| `GET /v1/search?domain=&tag=&order=` | なし | サイト内検索。`order`は`newest`（既定）か`popular` |
+| `POST /v1/reach` | なし | 検索結果からページを開いたことの記録。人気順と表示期間に使う |
+| `POST /v1/kpi` | トークン | 日ごとの集計（日付・サイト・件数。URLを含まない） |
 | `GET /` `GET /search` | なし | 検索ページ（`noindex`） |
 | `GET /api/health` | なし | 稼働中のバージョンとソースの場所 |
 
@@ -183,7 +109,7 @@ java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory -s
 
 ステージごとの値は、SSMの`/doyu/<stage>/`の下に次の名前で置きます。
 
-`allowed-ips` `invite-code` `token-secret` `origin-secret` `origin-enforce`
+`allowed-ips` `token-secret` `origin-secret` `origin-enforce`
 
 
 ## 運営の道具

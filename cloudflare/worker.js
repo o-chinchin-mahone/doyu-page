@@ -99,10 +99,11 @@ export default {
       redirect: "manual",
     });
 
-    // ★エッジキャッシュは招待コードを外すまで有効にしない。
-    //   Free プランではキャッシュキーにヘッダを含められない（Enterprise 限定）ため、
-    //   招待コード無しのリクエストに、誰かの取得済みレスポンスを返してしまう。
-    //   G1b（allowedIps と招待コードを外す）のあとに EDGE_CACHE=on にする。
+    // ★エッジキャッシュは有効にしていない（EDGE_CACHE=off）。
+    //   Free プランではキャッシュキーにヘッダを含められない（Enterprise 限定）。
+    //   Lambda は Origin を見て CORS のヘッダを付けるので、Origin 無しで取られた応答が
+    //   キャッシュに入ると、拡張がそれを受け取って CORS で落ちる。
+    //   on にするなら、先に CORS のヘッダをこの Worker で付けるようにすること。
     //   そのときの TTL は 60秒（imp_token の exp_bucket が60秒固定なので整列させる。30秒にしない）
     const cacheable = env.EDGE_CACHE === "on"
       && request.method === "GET"

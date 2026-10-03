@@ -3,3 +3,4 @@ extension/key.pem
 *.pem
 .env
 .dynamodb-local/
+dist/

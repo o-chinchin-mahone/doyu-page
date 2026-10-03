@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 process.env.EXTENSION_ID = "fladmnjffgaplkjhjnhfgifbmcdcoldj";
-process.env.INVITE_CODE = "test-invite";
 process.env.TOKEN_SECRET = "test-secret";
 process.env.VERIFY_PUBLIC = "0";
 
@@ -21,7 +20,7 @@ const call = (method, rawPath, { query = "", body, headers = {} } = {}) =>
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 
-test("★法務ページは招待コード無しで誰でも読める（読めなければ公開した意味がない）", async () => {
+test("★法務ページは誰でも読める（読めなければ公開した意味がない）", async () => {
   for (const path of ["/terms", "/privacy", "/takedown", "/transmission", "/source", "/license"]) {
     const res = await call("GET", path);
     assert.equal(res.statusCode, 200, path);
@@ -93,7 +92,7 @@ test("★muted は「ページ上から見えないが検索には出る」（03
   // ★これが本体。クライアントで隠すのでは駄目で、読み取りの応答に文字列自体が乗っていないこと。
   //   乗っていたら通信を覗くだけで読めてしまい、「見えない」が嘘になる
   const wire = await call("GET", "/v1/tags", {
-    query: `hash=${hash}`, headers: { "x-doyu-invite": "test-invite" },
+    query: `hash=${hash}`,
   });
   assert.equal(wire.statusCode, 200);
   assert.ok(!wire.body.includes(tag), "★muted のタグ文字列が読み取りの応答に乗っている");
@@ -124,7 +123,7 @@ test("★表示寿命: 到達の無いタグは猶予を過ぎるとページか
   assert.equal(await onPageAt(Date.now() + (display_grace_days + 1) * day), false);
   // ★寿命切れも同じ。文字列が応答に乗らないこと（クライアントで隠すのでは意味がない）
   const wire = await call("GET", "/v1/tags", {
-    query: `hash=${hash}`, headers: { "x-doyu-invite": "test-invite" },
+    query: `hash=${hash}`,
     // readTagsOfUrl の now はサーバーの時計なので、ここは 0 到達 + 猶予内 = 見えている状態の確認に使う
   });
   assert.ok(wire.body.includes(tag), "猶予内なのに見えていない");
@@ -141,20 +140,19 @@ test("★表示寿命: 到達の無いタグは猶予を過ぎるとページか
 test("到達は存在しない組み合わせを問い合わせる道具にならない（在否を返さない形で 200）", async () => {
   const fake = "f".repeat(64);
   const res = await call("POST", "/v1/reach", {
-    headers: { "x-doyu-invite": "test-invite" },
     body: { url_hash: fake, tag_id: "aaaaaaaaaaaaaaaa" },
   });
   assert.equal(res.statusCode, 200);
   // 形が違うものは 400（叩き放題の入口にしない）
   const bad = await call("POST", "/v1/reach", {
-    headers: { "x-doyu-invite": "test-invite" }, body: { url_hash: "zz", tag_id: "!" },
+    body: { url_hash: "zz", tag_id: "!" },
   });
   assert.equal(bad.statusCode, 400);
 });
 
 test("★投稿者という概念を外に出さない（通知経路も持たない）", async () => {
   const { issueToken } = await import("../src/token.mjs");
-  const headers = { "x-doyu-invite": "test-invite", "x-doyu-token": issueToken("k-someone") };
+  const headers = { "x-doyu-token": issueToken("k-someone") };
   assert.equal((await call("GET", "/v1/notices", { headers })).statusCode, 404, "通知経路が生きている");
 
   const url = `https://blog.example.jp/entry/${randomUUID().slice(0, 6)}`;

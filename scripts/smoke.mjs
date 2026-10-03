@@ -1,5 +1,5 @@
 // デプロイ後の動作確認: Lambda を直接呼んで一通り通ることを確かめる
-//   CI の IP は許可リストに無いので、許可IP・招待コードを模したイベントで呼ぶ
+//   CI の IP は許可リストに無いので、許可IPを模したイベントで呼ぶ
 //   ★ 本番にデータを作らないよう、書き込み経路は「拒否されること」だけ確認する
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
@@ -19,7 +19,6 @@ const param = async (Name) => {
 };
 
 const allowedIps = await param(n.allowedIpsParam);
-const invite = await param(n.inviteCodeParam);
 const sourceIp = allowedIps.split(",")[0]?.trim().split("/")[0].replace(/::$/, "::1") || "192.0.2.1";
 
 // 直撃防御が有効なら、正常系の呼び出しには合言葉を付ける（Worker を模す）。
@@ -33,7 +32,6 @@ async function call(method, rawPath, { query = "", headers = {}, body } = {}) {
     Payload: JSON.stringify({
       rawPath, rawQueryString: query,
       headers: {
-        "x-doyu-invite": invite,
         ...(originEnforced ? { "x-doyu-origin": originSecret } : {}),
         ...headers,
       },
@@ -61,7 +59,7 @@ const checks = [
   ["GET", "/v1/search", { query: "domain=youtube.com&tag=メヒカリ" }, 200],
   ["POST", "/v1/tags", { body: { url: "https://example.com/x", tag: "x" } }, 401], // トークン必須
   ["OPTIONS", "/v1/tags", { headers: { origin: `chrome-extension://${EXTENSION_ID}` } }, 204],
-  // 法務ページ（M4a）。招待コード無しで読めること自体が要件
+  // 法務ページ（M4a）
   ["GET", "/terms", {}, 200],
   ["GET", "/privacy", {}, 200],
   ["GET", "/takedown", {}, 200],

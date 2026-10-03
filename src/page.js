@@ -1,9 +1,7 @@
 const $ = (id) => document.getElementById(id);
-const store = window.localStorage;
-const invite = () => store.getItem("doyu.invite") ?? "";
 
 async function api(path) {
-  const res = await fetch(path, { headers: { "x-doyu-invite": invite() } });
+  const res = await fetch(path);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error ?? `http_${res.status}`);
   return body;
@@ -13,14 +11,13 @@ async function api(path) {
  * 到達の記録（docs/02 §3）。「検索結果から目的ページへ行った」だけを1回数える。
  *   ★これが無いとタグの表示寿命が延びない（誰も使わないタグはページ上から沈む。03 §2）
  *   ★送るのは検索結果としてサーバーが返してきた url_hash と tag_id だけ。新しい情報は渡さない
- *   ★sendBeacon は使えない。招待コードのヘッダを付けられず、招待ゲートに弾かれる。
- *     keepalive の fetch ならヘッダを付けられて、かつ遷移で中断されても送り切られる
+ *   ★keepalive を付ける。遷移で中断されても送り切られる
  *   ★失敗しても黙って捨てる。到達が数えられなかったタグは表示寿命が延びないだけ
  */
 function reach(url_hash, tag_id) {
   fetch("/v1/reach", {
     method: "POST", keepalive: true,
-    headers: { "content-type": "application/json", "x-doyu-invite": invite() },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({ url_hash, tag_id }),
   }).catch(() => {});
 }
@@ -67,25 +64,10 @@ async function search(domain, tag) {
       $("list").append(li);
     }
   } catch (e) {
-    $("err").textContent = e.message === "invite_required" ? "招待コードを設定してください" : e.message;
+    $("err").textContent = e.message;
     $("settings").open = true;
   }
 }
-
-// 拡張が開いたときは招待コードがフラグメントで渡ってくる。受け取って保存し、URLから消す
-//   （フラグメントはサーバーに送られないので、ログにも残らない）
-(() => {
-  const m = /[#&]i=([^&]+)/.exec(location.hash);
-  if (!m) return;
-  try { store.setItem("doyu.invite", decodeURIComponent(m[1])); } catch { /* 保存できなくても続行 */ }
-  history.replaceState(null, "", location.pathname + location.search);
-})();
-
-$("invite").value = invite();
-$("invite").addEventListener("change", () => {
-  store.setItem("doyu.invite", $("invite").value.trim());
-  location.reload();
-});
 
 const params = new URLSearchParams(location.search);
 const domain = params.get("domain");

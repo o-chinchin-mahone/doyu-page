@@ -16,7 +16,6 @@ export const names = (stage = STAGE) => ({
   func: `${APP}-${stage}`,
   // 許可IPは stages.json ではなく SSM に置く（M0 決定4: 自宅IPを公開履歴に残さない）
   allowedIpsParam: `/${APP}/${stage}/allowed-ips`,
-  inviteCodeParam: `/${APP}/${stage}/invite-code`,
   // 投稿トークン（名乗りの偽装防止）とページングカーソルの署名鍵。docs/99 §3 D2
   tokenSecretParam: `/${APP}/${stage}/token-secret`,
   // Cloudflare の Worker と共有する合言葉。Function URL 直撃を塞ぐ（docs/09 M5）

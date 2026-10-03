@@ -1,6 +1,6 @@
 // Lambda と公開 URL を作成・更新する（GitHub Actions から実行される）
 //   土台（テーブル・ロール・SSM）は infra.mjs で作成済みであること
-//   許可IPと招待コードは stages.json ではなく SSM から読む（M0 決定4）
+//   許可IPは stages.json ではなく SSM から読む（M0 決定4）
 import { appendFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -42,7 +42,6 @@ const Environment = {
     TABLE_NAME: n.table,
     EXTENSION_ID,
     ALLOWED_IPS: await param(n.allowedIpsParam),
-    INVITE_CODE: await param(n.inviteCodeParam),
     TOKEN_SECRET: await param(n.tokenSecretParam),
     // ★ Worker を立てるまでは空のまま。値を入れた瞬間、Function URL の直撃は 403 になる
     //   （Worker 側にも同じ値を wrangler secret put ORIGIN_SECRET で入れること）

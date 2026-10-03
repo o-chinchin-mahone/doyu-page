@@ -42,7 +42,7 @@ if (ttl.TimeToLiveDescription?.TimeToLiveStatus !== "ENABLED") {
 }
 console.log(`✓ TTL (${TTL_ATTRIBUTE})`);
 
-// 3. SSM パラメータ（許可IPと招待コード。stages.json に自宅IPを置かないため）
+// 3. SSM パラメータ（署名鍵と合言葉）
 async function ensureParam(Name, initial) {
   try {
     const r = await ssm.send(new GetParameterCommand({ Name }));
@@ -55,9 +55,6 @@ async function ensureParam(Name, initial) {
 }
 // 許可IPは allow-me が書く。SSM は空文字を許さないので、ここでは作らない
 //   （deploy.mjs は ParameterNotFound を "" として扱う = 全員許可）
-const invite = await ensureParam(n.inviteCodeParam, randomBytes(16).toString("base64url"));
-console.log(`✓ SSM ${n.inviteCodeParam}`);
-console.log(`  招待コード: ${invite}`);
 await ensureParam(n.tokenSecretParam, randomBytes(32).toString("hex"));
 console.log(`✓ SSM ${n.tokenSecretParam}（投稿トークンの署名鍵。表示しない）`);
 await ensureParam(n.originSecretParam, randomBytes(32).toString("hex"));
@@ -162,7 +159,7 @@ await iam.send(new PutRolePolicyCommand({
         Resource: funcArn,
       },
       { Effect: "Allow", Action: "iam:PassRole", Resource: `arn:aws:iam::${account}:role/${n.lambdaRole}` },
-      // デプロイ時に許可IP・招待コードを読んで Lambda の環境変数に入れる
+      // デプロイ時に許可IP・署名鍵・合言葉を読んで Lambda の環境変数に入れる
       {
         Effect: "Allow",
         Action: ["ssm:GetParameter"],
