@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+# .bat is parsed by cmd.exe; LF-only batch files break on block constructs
+*.bat text eol=crlf
+
+# .cmd / .ps1 も cmd.exe・PowerShell が読む
+*.cmd text eol=crlf
