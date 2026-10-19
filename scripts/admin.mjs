@@ -15,6 +15,7 @@
 //         aws configure export-credentials --format powershell | iex              # PowerShell
 //
 //     STAGE=dev node scripts/admin.mjs recent           # 中身をまとめて眺める
+//     STAGE=dev node scripts/admin.mjs kpi [--days 14]  # サイト別に、タグ欄が開かれた回数を見る
 //     STAGE=dev node scripts/admin.mjs show    <url>
 //     STAGE=dev node scripts/admin.mjs remove  <url> <tag> --clause 3 --reason "本人の電話番号"
 //     STAGE=dev node scripts/admin.mjs mute    <url> <tag> --reason "荒らし"   # 見えないが検索には出る
@@ -39,6 +40,15 @@ if (!process.env.TABLE_NAME) {
   console.error("TABLE_NAME を決められませんでした。STAGE を指定してください");
   process.exit(1);
 }
+// ★投稿された文字列（タグ・題名・UA）をそのまま端末へ出さない。ESC が混ざっていると、
+//   画面を消す・偽のリンクを出す・前の行を書き換える、といったことができてしまう。
+//   改行とゼロ幅接合子（絵文字）以外の制御文字は \u{..} の形で見せる
+const tame = (v) => (typeof v === "string"
+  ? v.replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === "\n" || c === "‍" ? c : `\\u{${c.codePointAt(0).toString(16)}}`))
+  : v);
+const rawLog = console.log;
+console.log = (...a) => rawLog(...a.map(tame));
+
 // 「どこを触るのか」を必ず先に出す。取り違えて消すのが一番まずい
 console.error(`[${STAGE}] ${process.env.TABLE_NAME}${process.env.DDB_ENDPOINT ? `（${process.env.DDB_ENDPOINT}）` : ""}`);
 
@@ -191,6 +201,25 @@ switch (command) {
 そのほか: 端末 ${users.length} / 日次集計 ${kpi.length}`);
     console.log(`表示寿命: 新着 ${(await life()).grace_days}日 / 到達から ${(await life()).life_days}日`);
     console.log(`URL数: ${rows.find((r) => r.pk === "STAT")?.n ?? 0} / deny_version: ${rows.find((r) => r.sk === "VERSION")?.deny_version ?? 0}`);
+    break;
+  }
+
+  // 入れた人が実際に開いているかを見る。タグの数だけでは「見ているが付けていない」が分からない
+  //   ★端末ごとには分けていない（集計は日付・サイト・件数だけ）。自分の分も混ざる
+  case "kpi": {
+    const db = await store.backend();
+    const days = Number(flag("days", 14));
+    console.log(`\n日次集計（直近${days}日。日付は UTC / 表示 = タグ欄を開いた回数 / タグあり = そのうちタグが出た回数）`);
+    let total = 0;
+    for (let i = 0; i < days; i++) {
+      const date = new Date(Date.now() - i * 86400e3).toISOString().slice(0, 10).replace(/-/g, "");
+      const { items } = await db.query({ pk: `KPI#${date}`, skPrefix: "D#" });
+      for (const r of items.sort((a, b) => (b.shown ?? 0) - (a.shown ?? 0))) {
+        console.log(`  ${date}  表示 ${String(r.shown ?? 0).padStart(4)}  タグあり ${String(r.with_tags ?? 0).padStart(4)}  ${r.sk.slice(2)}`);
+        total += r.shown ?? 0;
+      }
+    }
+    if (!total) console.log("  （なし）");
     break;
   }
 

@@ -49,9 +49,14 @@ test("機械フィルタ: 形式的なパターンだけを拒否する（03 §3
   }
 });
 
-test("改行・空・長すぎは拒否する", () => {
+test("改行・制御文字・空・長すぎは拒否する", () => {
   const cases = {
     "a\nb": "newline",
+    "a\u001b[2Jb": "control",
+    "a\u0000b": "control",
+    "\b\bfake": "control",
+    "abc‮olleh": "control",
+    "a⁦b": "control",
     "": "empty",
     "   ": "empty",
     ["あ".repeat(MAX_LENGTH + 1)]: "too_long",
@@ -60,6 +65,8 @@ test("改行・空・長すぎは拒否する", () => {
     assert.throws(() => normalizeTag(input), (e) => e instanceof TagError && e.code === code, JSON.stringify(input));
   }
   assert.equal(normalizeTag("あ".repeat(MAX_LENGTH)).length, MAX_LENGTH);
+  // 絵文字の組み立て（ゼロ幅接合子）は通す
+  assert.equal(normalizeTag("👨‍👩‍👧"), "👨‍👩‍👧");
 });
 
 test("tag_id は base32 16文字（sha256 の先頭10バイト）", () => {

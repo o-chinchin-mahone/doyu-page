@@ -19,6 +19,13 @@ test("whoami は誰でも叩ける（許可IP登録に使うため）", async ()
   assert.equal(JSON.parse(r.body).ip, "192.0.2.1");
 });
 
+test("組み込みの名前（/constructor 等）を法務ページとして返さない", async () => {
+  for (const p of ["/constructor", "/__proto__", "/toString", "/hasOwnProperty"]) {
+    const r = await call("GET", p);
+    assert.notEqual(r.statusCode, 200, p);
+  }
+});
+
 test("レスポンスに noindex が付く（docs/01 §2.1）", async () => {
   const r = await call("GET", "/api/health");
   assert.match(r.headers["x-robots-tag"], /noindex/);

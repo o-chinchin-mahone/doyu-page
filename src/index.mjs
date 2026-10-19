@@ -271,8 +271,9 @@ export async function handler(event) {
   }
 
   // 法務ページは誰でも読めなければ意味がない（IP制限の手前に置く）
-  if (method === "GET" && LEGAL[path.slice(1)]) return html(200, legalPage(path.slice(1)), cors);
-  if (method === "GET" && ASSETS[path]) {
+  // ★ Object.hasOwn で引く。LEGAL[...] だけだと /constructor や /__proto__ も「ある」ことになる
+  if (method === "GET" && Object.hasOwn(LEGAL, path.slice(1))) return html(200, legalPage(path.slice(1)), cors);
+  if (method === "GET" && Object.hasOwn(ASSETS, path)) {
     return {
       statusCode: 200,
       headers: {

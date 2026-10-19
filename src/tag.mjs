@@ -17,6 +17,10 @@ export class TagError extends Error {
 export function normalizeTag(raw) {
   const input = String(raw ?? "");
   if (/[\r\n\t]/.test(input)) throw new TagError("newline");
+  // 制御文字（ESC・NUL・BS 等）と文字の向きを変える記号は持たない。タグとして意味が無く、
+  //   ESC は管理コマンドの端末を操作でき（画面消去・偽のリンク）、向きの記号は見た目と中身をずらせる。
+  //   ゼロ幅接合子（U+200D）は絵文字の組み立てに要るので残す
+  if (/[\p{Cc}‎‏‪-‮⁦-⁩]/u.test(input)) throw new TagError("control");
 
   const key = input.normalize("NFKC").toLowerCase().replace(/\s+/gu, " ").trim();
 
